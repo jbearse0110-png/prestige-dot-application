@@ -27,7 +27,7 @@ function validate(a){
   return true;
 }
 export async function onRequestPost({request,env}){
-  if(!env.APPLICATIONS_BUCKET||!env.TURNSTILE_SECRET_KEY||!env.TURNSTILE_SITE_KEY||!env.RESEND_API_KEY||!env.APPLICATION_EMAIL_TO||!env.APPLICATION_EMAIL_FROM)return json({error:'Application service is not configured.'},503);
+  if(!env.TURNSTILE_SECRET_KEY||!env.TURNSTILE_SITE_KEY||!env.RESEND_API_KEY||!env.APPLICATION_EMAIL_TO||!env.APPLICATION_EMAIL_FROM)return json({error:'Application service is not configured.'},503);
   const origin=request.headers.get('Origin');if(origin&&origin!==new URL(request.url).origin)return json({error:'Invalid request origin.'},403);
   if(!request.headers.get('content-type')?.startsWith('application/json'))return json({error:'Expected JSON.'},415);
   if(Number(request.headers.get('content-length'))>120000)return json({error:'Application is too large.'},413);
@@ -40,18 +40,13 @@ export async function onRequestPost({request,env}){
   const id=crypto.randomUUID();const submittedAt=new Date().toISOString();
   const {turnstileToken,...application}=body;
   const record={schemaVersion:1,id,submittedAt,carrier:{name:'Prestige Site Works LLC',address:'7224 Jameson Way, Stanley, NC'},application};
-  const prefix=`applications/${submittedAt.slice(0,10)}/${id}`;
   let pdf;
-  try{
-    pdf=await createApplicationPdf(record);
-    await env.APPLICATIONS_BUCKET.put(`${prefix}.pdf`,pdf,{httpMetadata:{contentType:'application/pdf'},customMetadata:{schema:'1'}});
-    await env.APPLICATIONS_BUCKET.put(`${prefix}.json`,JSON.stringify(record),{httpMetadata:{contentType:'application/json'},customMetadata:{schema:'1'}});
-  }catch(error){
-    console.error('Application storage error',id,error);
-    return json({error:'Could not save your application. Please try again.'},503);
+  try{pdf=await createApplicationPdf(record)}catch(error){
+    console.error('Application PDF generation failed',id,error);
+    return json({error:'Could not prepare your application. Please try again.'},503);
   }
-  // Storage is complete before email. If delivery fails, the applicant still receives
-  // confirmation; staff can retrieve the PDF by confirmation ID in the private bucket.
+  // The application is not retained by this service; a successful email API response
+  // is required before we give the applicant a confirmation number.
   try{
     const bytes=new Uint8Array(pdf);
     let encoded='';for(let i=0;i<bytes.length;i+=8192)encoded+=String.fromCharCode(...bytes.subarray(i,i+8192));
@@ -64,7 +59,7 @@ export async function onRequestPost({request,env}){
     const result=await response.json();if(!result.id)throw Error('Email service returned no message ID');
   }catch(error){
     console.error('Application email delivery failed',id,error);
-    try{await env.APPLICATIONS_BUCKET.put(`notifications/pending/${id}.json`,JSON.stringify({id,submittedAt,reason:'Email delivery failed; retrieve the PDF from private R2 and send it securely.'}),{httpMetadata:{contentType:'application/json'}})}catch(markerError){console.error('Could not record pending email',id,markerError)}
+    return json({error:'Your application could not be emailed. Please try again, or contact the hiring team.'},503);
   }
   return json({id,submittedAt},201);
 }
