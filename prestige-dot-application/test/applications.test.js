@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {onRequestPost} from '../functions/api/applications.js';
+import {onRequestGet as getConfig} from '../functions/api/config.js';
 const today=new Date().toISOString().slice(0,10);
 const sample=()=>({
   applicant:{fullName:'Jane Test',dateOfBirth:'1990-01-01',phone:'555-0101',email:'jane@example.test'},
@@ -11,6 +12,10 @@ const sample=()=>({
   noOlderWork:false,olderEmployers:[],certification:{accepted:true,signature:'Jane Test',date:today},turnstileToken:'test-token'
 });
 function context(body){return {request:new Request('https://apply.example.test/api/applications',{method:'POST',headers:{'Content-Type':'application/json','Origin':'https://apply.example.test'},body:JSON.stringify(body)}),env:{TURNSTILE_SECRET_KEY:'test-secret',TURNSTILE_SITE_KEY:'test-site',RESEND_API_KEY:'test-email-key',APPLICATION_EMAIL_TO:'hr@example.test',APPLICATION_EMAIL_FROM:'applications@example.test'}}}
+test('enables the form with email settings and no storage bucket',async()=>{
+  const response=getConfig({env:context(sample()).env});
+  assert.deepEqual(await response.json(),{sitekey:'test-site'});
+});
 test('creates a PDF and emails it to configured staff without a storage binding',async()=>{
   let email;const prior=globalThis.fetch;globalThis.fetch=async(url,options)=>{
     if(url==='https://api.resend.com/emails'){email=JSON.parse(options.body);return Response.json({id:'email-123'})}
