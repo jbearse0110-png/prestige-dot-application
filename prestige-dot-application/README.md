@@ -1,42 +1,37 @@
-# Prestige DOT driver application
+# Prestige DOT driver application — email-only version
 
-A Cloudflare Pages site with a Pages Function that validates applications and saves each completed submission as JSON in a private R2 bucket. Based on the attached two-page Prestige DOT Driver Application, with additional fields required by 49 CFR 391.21. The source PDF is not modified.
+This Cloudflare Pages project takes a completed driver application, generates a PDF, and emails it as an attachment to one configured staff address. It does **not** use R2, a database, or any other website storage. It does not keep a second copy of a submission. This version does **not** ask for or transmit a Social Security number.
 
-## What is included
+The form is based on the supplied two-page DOT Driver Application with additional fields relevant to 49 CFR 391.21. The supplied PDF was not modified. **49 CFR 391.21(b)(2) calls for the SSN on a driver's employment application.** Collect it separately through your established secure process and work with your DOT compliance lead to attach the resulting information to each signed application before treating the DQ file as complete. Before distributing to drivers, verify that the employer's name and address printed on the form match the current company details.
 
-- Responsive applicant form with address, license, equipment, accident, violation, and employer sections; typed signature and date.
-- Three years of all employers and, for CDL applicants, seven additional years of commercial driving employers.
-- Required SSN, stored in private R2 only. No client-side drafts, public application listing, or public download endpoint.
-- Turnstile challenge verified by the server; the Function rejects submissions unless the R2 and Turnstile settings exist.
-- Confirmation number shown only after a successful R2 write.
+## Publish
 
-## Set up in Cloudflare
+1. Put the project files in a GitHub repository linked to **Cloudflare Pages**. If this folder is inside the GitHub repository, set the Pages root directory to `prestige-dot-application`. Leave build command blank; set build output directory to `public`. Cloudflare installs the `pdf-lib` dependency from `package.json` and `package-lock.json` during the build. The `functions` directory must sit next to `public` under the configured root.
+2. Create a [Cloudflare Turnstile](https://dash.cloudflare.com/?to=/:account/turnstile) widget for the site's production hostname (for example `prestige-dot-application.pages.dev`).
+3. Set up a [Resend](https://resend.com/) account using **the same email address that should receive the PDFs**, then create an API key with sending access. For a temporary setup sending only to that account address, use Resend's `onboarding@resend.dev` test sender; Resend restricts this sender to the email address on your account. To use another recipient or company-branded sender, verify a sending domain you control. Check the free tier's current daily limit before sending to a large group.
+4. In the **Pages project → Settings → Variables and Secrets**, add these **production** settings:
 
-1. Create a **private** R2 bucket, for example `prestige-dot-driver-applications`. Do not enable an `r2.dev` public URL or attach a public bucket domain. Limit dashboard access to authorized HR/DOT staff.
-2. Create a Turnstile widget for the exact hostname where applicants will use the site. Keep its secret key private.
-3. Create a Cloudflare **Pages** project connected to a Git repository containing this folder. Set its root directory to this folder if this is part of a larger repository. Build command: leave blank. Build output directory: `public`. The `functions` folder must be at the project root alongside `public`.
-4. In the Pages project, add an **R2 bucket binding** named `APPLICATIONS_BUCKET` pointing to the private bucket. Add `TURNSTILE_SITE_KEY` as a variable and `TURNSTILE_SECRET_KEY` as a secret under **Settings → Variables and Secrets**. Set these in the production environment; redeploy after binding changes. Configure preview separately if you intend to test there, with a Turnstile hostname that matches the preview URL.
-5. Visit the deployed page, fill a sample using fictitious data, and submit. Confirm that the confirmation ID corresponds to an object under `applications/YYYY-MM-DD/<id>.json` in R2. Download the test object in the R2 dashboard, verify the fields, then delete that fictitious test object.
-6. Give the final text and employment history questions to your DOT compliance lead or counsel for review before inviting real applicants. Set a retention and deletion policy for applications, and decide how authorized staff will download and archive records in your driver qualification workflow.
+   | Name | Type | Value |
+   | --- | --- | --- |
+   | `TURNSTILE_SITE_KEY` | Variable | Public site key for the production hostname |
+   | `TURNSTILE_SECRET_KEY` | Secret | Secret from the same Turnstile widget |
+   | `RESEND_API_KEY` | Secret | Resend sending API key |
+   | `APPLICATION_EMAIL_TO` | Variable | Authorized staff mailbox receiving completed applications |
+   | `APPLICATION_EMAIL_FROM` | Variable | `onboarding@resend.dev` when sending to the same address used for your Resend account; otherwise a sender at your verified domain |
 
-**Do not use Cloudflare's dashboard drag-and-drop Direct Upload.** It does not deploy Pages Functions from a `functions` folder. Use a Git-connected Pages project or Wrangler CLI. Cloudflare documents the Git and CLI routes for Pages Functions.
+   Never put secret keys in GitHub or send them in chat. Redeploy after editing settings. You do **not** need to create or bind an R2 bucket.
+5. On the permanent production address (`https://prestige-dot-application.pages.dev/`, without a deployment hash), submit one **fictitious** test application. Check that the mailbox receives a readable PDF and the form displays a confirmation number. Delete the fictitious email and PDF afterward. If the email API refuses the message, the applicant gets an error and can retry; a confirmation means the email service accepted the message, **not** that it reached the inbox. Check spam and Resend's delivery log if it does not arrive.
 
-### Optional Wrangler deployment
+## Handling completed applications
 
-Create the Pages project and configure bindings and secrets in the dashboard first. From this directory, run:
+Move each attachment from the receiving mailbox into the driver's restricted DQ file according to your company's practices. The email provider and mailbox retain copies according to their own settings; this website has no recovery copy. Confirm that the PDF arrived before deleting it from email. Set an end date for the temporary rollout and remove the site or disable submissions when finished.
 
-```bash
-npx wrangler pages deploy public --project-name YOUR_PAGES_PROJECT_NAME
-```
+## Security and scope
 
-Do not put secret values in source control. No Cloudflare credentials are bundled here.
+- Server verifies Turnstile and rejects submissions unless the email service is configured. It sends only to the staff address set on the server, never an address supplied by a driver.
+- There is no public download or application listing endpoint, client-side draft storage, R2 binding, or database.
+- The emailed PDFs contain other sensitive personal information but do not include SSNs. Restrict access to the mailbox and DQ files.
+- Reject any client submission containing an `ssn` field. Have drivers refresh the updated site if their browser still shows the old SSN form.
+- This form does not perform prior-employer investigations, medical qualification, MVR checks, or the rest of a driver qualification process.
 
-## Accessing records
-
-Each application is a single JSON object in the private R2 bucket. R2 dashboard access is the initial staff workflow. The site exposes only `POST /api/applications` and the public `GET /api/config` Turnstile site key; it does not provide applicant or staff record retrieval. A later staff dashboard must be protected by real authentication and server-side authorization, not an admin password in browser JavaScript.
-
-## Regulatory scope
-
-The form captures fields in 49 CFR 391.21, but a driver qualification program also includes separate investigations, record checks, medical qualification where applicable, and other processes. This form does not automate those steps, and it does not verify the truth or completeness of an applicant's history. Review whether the exact electronic signature and notice meet your company's record practices. The company name and address are copied verbatim from the supplied PDF; verify they reflect the current employing motor carrier before launch.
-
-Sources: [49 CFR 391.21](https://www.ecfr.gov/current/title-49/subtitle-B/chapter-III/subchapter-B/part-391/subpart-C/section-391.21), [Cloudflare Pages Functions](https://developers.cloudflare.com/pages/functions/get-started/), [R2 binding](https://developers.cloudflare.com/pages/functions/bindings/), [Turnstile server-side validation](https://developers.cloudflare.com/turnstile/get-started/server-side-validation/).
+Documentation: [Cloudflare Pages Functions](https://developers.cloudflare.com/pages/functions/get-started/), [Turnstile verification](https://developers.cloudflare.com/turnstile/get-started/server-side-validation/), [Resend attachments](https://resend.com/docs/dashboard/emails/attachments), [49 CFR 391.21](https://www.ecfr.gov/current/title-49/subtitle-B/chapter-III/subchapter-B/part-391/subpart-C/section-391.21).

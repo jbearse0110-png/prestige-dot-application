@@ -1,3 +1,5 @@
+import { createApplicationPdf } from './application-pdf.js';
+
 const json=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 const str=(v,max=500)=>typeof v==='string'&&v.trim().length>0&&v.length<=max;
 const opt=(v,max=500)=>v===undefined||v===null||v===''||str(v,max);
@@ -10,7 +12,7 @@ const dated=a=>month(a.from)&&month(a.to)&&a.from<=a.to;
 function validate(a){
   if(!a||typeof a!=='object'||!a.applicant||!a.address||!a.certification)return false;
   const p=a.applicant,c=a.certification;
-  if(!str(p.fullName,120)||!date(p.dateOfBirth)||p.dateOfBirth>=new Date().toISOString().slice(0,10)||!str(p.phone,30)||!str(p.email,180)||!/^\d{3}-?\d{2}-?\d{4}$/.test(p.ssn||''))return false;
+  if(!str(p.fullName,120)||!date(p.dateOfBirth)||p.dateOfBirth>=new Date().toISOString().slice(0,10)||!str(p.phone,30)||!str(p.email,180)||Object.hasOwn(p,'ssn'))return false;
   if(!address(a.address)||!validRows(a.previousAddresses,20,x=>address(x)&&dated(x)))return false;
   if(!validRows(a.licenses,12,x=>str(x.authority,80)&&str(x.number,80)&&opt(x.class,50)&&date(x.expiration))||!a.licenses.length)return false;
   if(!opt(a.medicalExpiration,10)||(a.medicalExpiration&&!date(a.medicalExpiration))||!yesno(a.cdlApplicant))return false;
@@ -25,7 +27,7 @@ function validate(a){
   return true;
 }
 export async function onRequestPost({request,env}){
-  if(!env.APPLICATIONS_BUCKET||!env.TURNSTILE_SECRET_KEY||!env.TURNSTILE_SITE_KEY)return json({error:'Application service is not configured.'},503);
+  if(!env.TURNSTILE_SECRET_KEY||!env.TURNSTILE_SITE_KEY||!env.RESEND_API_KEY||!env.APPLICATION_EMAIL_TO||!env.APPLICATION_EMAIL_FROM)return json({error:'Application service is not configured.'},503);
   const origin=request.headers.get('Origin');if(origin&&origin!==new URL(request.url).origin)return json({error:'Invalid request origin.'},403);
   if(!request.headers.get('content-type')?.startsWith('application/json'))return json({error:'Expected JSON.'},415);
   if(Number(request.headers.get('content-length'))>120000)return json({error:'Application is too large.'},413);
@@ -38,7 +40,27 @@ export async function onRequestPost({request,env}){
   const id=crypto.randomUUID();const submittedAt=new Date().toISOString();
   const {turnstileToken,...application}=body;
   const record={schemaVersion:1,id,submittedAt,carrier:{name:'Prestige Site Works LLC',address:'7224 Jameson Way, Stanley, NC'},application};
-  try{await env.APPLICATIONS_BUCKET.put(`applications/${submittedAt.slice(0,10)}/${id}.json`,JSON.stringify(record),{httpMetadata:{contentType:'application/json'},customMetadata:{schema:'1'}})}catch{return json({error:'Could not save your application. Please try again.'},503)}
+  let pdf;
+  try{pdf=await createApplicationPdf(record)}catch(error){
+    console.error('Application PDF generation failed',id,error);
+    return json({error:'Could not prepare your application. Please try again.'},503);
+  }
+  // The application is not retained by this service; a successful email API response
+  // is required before we give the applicant a confirmation number.
+  try{
+    const bytes=new Uint8Array(pdf);
+    let encoded='';for(let i=0;i<bytes.length;i+=8192)encoded+=String.fromCharCode(...bytes.subarray(i,i+8192));
+    const response=await fetch('https://api.resend.com/emails',{
+      method:'POST',
+      headers:{Authorization:`Bearer ${env.RESEND_API_KEY}`,'Content-Type':'application/json','Idempotency-Key':id},
+      body:JSON.stringify({from:env.APPLICATION_EMAIL_FROM,to:[env.APPLICATION_EMAIL_TO],subject:`New DOT driver application - ${id}`,text:`A DOT driver application has been received. Confirmation number: ${id}. The completed PDF is attached. Handle the attachment as confidential applicant information.`,attachments:[{filename:`DOT-application-${id}.pdf`,content:btoa(encoded)}]})
+    });
+    if(!response.ok)throw Error(`Email service HTTP ${response.status}`);
+    const result=await response.json();if(!result.id)throw Error('Email service returned no message ID');
+  }catch(error){
+    console.error('Application email delivery failed',id,error);
+    return json({error:'Your application could not be emailed. Please try again, or contact the hiring team.'},503);
+  }
   return json({id,submittedAt},201);
 }
 export function onRequest(){return json({error:'Method not allowed.'},405)}
