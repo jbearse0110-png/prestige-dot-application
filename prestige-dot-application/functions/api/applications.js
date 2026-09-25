@@ -27,18 +27,15 @@ function validate(a){
   return true;
 }
 export async function onRequestPost({request,env}){
-  if(!env.TURNSTILE_SECRET_KEY||!env.TURNSTILE_SITE_KEY||!env.RESEND_API_KEY||!env.APPLICATION_EMAIL_TO||!env.APPLICATION_EMAIL_FROM)return json({error:'Application service is not configured.'},503);
+  if(!env.RESEND_API_KEY||!env.APPLICATION_EMAIL_TO||!env.APPLICATION_EMAIL_FROM)return json({error:'Application service is not configured.'},503);
   const origin=request.headers.get('Origin');if(origin&&origin!==new URL(request.url).origin)return json({error:'Invalid request origin.'},403);
   if(!request.headers.get('content-type')?.startsWith('application/json'))return json({error:'Expected JSON.'},415);
   if(Number(request.headers.get('content-length'))>120000)return json({error:'Application is too large.'},413);
   let body;try{body=await request.json()}catch{return json({error:'Invalid application.'},400)}
+  if(body?.website)return json({error:'Invalid application.'},400);
   if(JSON.stringify(body).length>120000||!validate(body))return json({error:'Please review and complete all required application information.'},400);
-  const token=body.turnstileToken;if(!str(token,2048))return json({error:'Complete the verification and try again.'},400);
-  let verified;try{const response=await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({secret:env.TURNSTILE_SECRET_KEY,response:token,remoteip:request.headers.get('CF-Connecting-IP')})});verified=await response.json()}catch{return json({error:'Verification unavailable. Please try again.'},503)}
-  const expectedHost=new URL(request.url).hostname;
-  if(!verified.success||verified.hostname!==expectedHost)return json({error:'Verification failed. Refresh the verification and try again.'},403);
   const id=crypto.randomUUID();const submittedAt=new Date().toISOString();
-  const {turnstileToken,...application}=body;
+  const {website,...application}=body;
   const record={schemaVersion:1,id,submittedAt,carrier:{name:'Prestige Site Works LLC',address:'7224 Jameson Way, Stanley, NC'},application};
   let pdf;
   try{pdf=await createApplicationPdf(record)}catch(error){
