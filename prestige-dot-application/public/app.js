@@ -1,7 +1,9 @@
 const form=document.querySelector('#application');
 const status=document.querySelector('#status');
 const groups=['addresses','licenses','experience','accidents','violations','employers','olderEmployers'];
-let sitekey='';
+// Turnstile site keys are public. Keeping this key in the static page means
+// applicants can load the form even when an in-app browser blocks /api/config.
+const sitekey='0x4AAAAAAFDUUqm8WpdPwXch';
 function add(group){const node=document.querySelector(`#${group}-template`).content.firstElementChild.cloneNode(true);document.querySelector(`#${group}`).append(node);return node;}
 for(const button of document.querySelectorAll('[data-add]'))button.addEventListener('click',()=>add(button.dataset.add));
 form.addEventListener('click',e=>{if(e.target.classList.contains('remove'))e.target.closest('.row').remove()});
@@ -24,11 +26,11 @@ function validate(){
   for(const group of groups)for(const row of rows(group))if(row.from&&row.to&&row.from>row.to)return problem(`A date range in ${group} ends before it starts.`);
   return true;
 }
-async function configure(){try{const response=await fetch('/api/config',{cache:'no-store'});const data=await response.json();sitekey=data.sitekey||'';if(sitekey){window.turnstileReady=()=>{if(window.turnstile)window.turnstile.render('#turnstile',{sitekey})};if(window.turnstile)window.turnstileReady();else{const timer=setInterval(()=>{if(window.turnstile){clearInterval(timer);window.turnstileReady()}},200);setTimeout(()=>clearInterval(timer),15000)}}else problem('The application is being set up. Please check back later.')}catch{problem('The application service is unavailable. Please try again later.')}}
+function configure(){window.turnstileReady=()=>{if(window.turnstile)window.turnstile.render('#turnstile',{sitekey})};if(window.turnstile)window.turnstileReady();else{const timer=setInterval(()=>{if(window.turnstile){clearInterval(timer);window.turnstileReady()}},200);setTimeout(()=>{clearInterval(timer);if(!window.turnstile)problem('Verification did not load. Please open this link in Safari or Chrome and try again.')},15000)}}
 configure();
 form.addEventListener('submit',async e=>{e.preventDefault();if(!validate())return;if(!sitekey)return problem('Submission is not configured yet.');const token=document.querySelector('[name="cf-turnstile-response"]')?.value;if(!token)return problem('Please complete the verification before submitting.');
   const payload={applicant:{fullName:value('fullName'),dateOfBirth:value('dateOfBirth'),phone:value('phone'),email:value('email')},address:{street:value('currentStreet'),city:value('currentCity'),state:value('currentState'),zip:value('currentZip'),from:value('currentFrom')},previousAddresses:rows('addresses'),licenses:rows('licenses'),medicalExpiration:value('medicalExpiration'),cdlApplicant:value('cdlApplicant'),experience:rows('experience'),noAccidents:form.elements.noAccidents.checked,accidents:rows('accidents'),noViolations:form.elements.noViolations.checked,violations:rows('violations'),licenseAction:value('licenseAction'),licenseExplanation:value('licenseExplanation'),employers:rows('employers'),noOlderWork:form.elements.noOlderWork.checked,olderEmployers:rows('olderEmployers'),certification:{accepted:form.elements.certify.checked,signature:value('signature'),date:value('signatureDate')},turnstileToken:token};
   const submit=form.querySelector('.submit');submit.disabled=true;status.textContent='Submitting securely…';status.className='';
-  try{const response=await fetch('/api/applications',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const result=await response.json();if(!response.ok)throw Error(result.error||'Submission failed.');form.replaceWith(Object.assign(document.createElement('div'),{className:'card',innerHTML:`<h2>Application received</h2><p>Thank you. Your confirmation number is <strong id="confirmation"></strong>.</p><p>Save this number for your records. Our hiring team will review your application.</p>`}));document.querySelector('#confirmation').textContent=result.id;window.scrollTo({top:0,behavior:'smooth'})}
+  try{const response=await fetch('/submit-application',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const result=await response.json();if(!response.ok)throw Error(result.error||'Submission failed.');form.replaceWith(Object.assign(document.createElement('div'),{className:'card',innerHTML:`<h2>Application received</h2><p>Thank you. Your confirmation number is <strong id="confirmation"></strong>.</p><p>Save this number for your records. Our hiring team will review your application.</p>`}));document.querySelector('#confirmation').textContent=result.id;window.scrollTo({top:0,behavior:'smooth'})}
   catch(error){problem(error.message||'Unable to submit. Your form remains here; please try again.');window.turnstile?.reset();submit.disabled=false}
 });
