@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {PDFDocument} from 'pdf-lib';
 import {onRequestPost} from '../functions/api/applications.js';
 const today=new Date().toISOString().slice(0,10);
 const sample=()=>({
@@ -17,7 +16,7 @@ test('creates a PDF and emails it to configured staff without a storage binding'
     if(url==='https://api.resend.com/emails'){email=JSON.parse(options.body);return Response.json({id:'email-123'})}
     return Response.json({success:true,hostname:'apply.example.test'});
   };
-  try{const res=await onRequestPost(context(sample()));assert.equal(res.status,201);const confirmation=await res.json();assert.match(confirmation.id,/^[0-9a-f-]{36}$/);const bytes=Buffer.from(email.attachments[0].content,'base64');assert.ok((await PDFDocument.load(bytes)).getPageCount()>0);assert.equal(email.to[0],'hr@example.test');assert.equal(email.attachments[0].filename,`DOT-application-${confirmation.id}.pdf`)}finally{globalThis.fetch=prior}
+  try{const res=await onRequestPost(context(sample()));assert.equal(res.status,201);const confirmation=await res.json();assert.match(confirmation.id,/^[0-9a-f-]{36}$/);const pdf=Buffer.from(email.attachments[0].content,'base64').toString('ascii');assert.ok(pdf.startsWith('%PDF-1.4'));assert.match(pdf,/\/Type \/Page /);assert.match(pdf,/Full legal name/);assert.doesNotMatch(pdf,/Social Security number|SSN/);assert.equal(email.to[0],'hr@example.test');assert.equal(email.attachments[0].filename,`DOT-application-${confirmation.id}.pdf`)}finally{globalThis.fetch=prior}
 });
 test('does not confirm when email API refuses delivery',async()=>{
   const prior=globalThis.fetch;globalThis.fetch=async url=>url==='https://api.resend.com/emails'?Response.json({error:'not accepted'},{status:503}):Response.json({success:true,hostname:'apply.example.test'});

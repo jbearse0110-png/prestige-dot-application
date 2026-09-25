@@ -6,7 +6,7 @@ The form is based on the supplied two-page DOT Driver Application with additiona
 
 ## Publish
 
-1. Put the project files in a GitHub repository linked to **Cloudflare Pages**. If this folder is inside the GitHub repository, set the Pages root directory to `prestige-dot-application`. Leave build command blank; set build output directory to `public`. Cloudflare installs the `pdf-lib` dependency from `package.json` and `package-lock.json` during the build. The `functions` directory must sit next to `public` under the configured root.
+1. Put the project files in a GitHub repository linked to **Cloudflare Pages**. If this folder is inside the GitHub repository, set the Pages root directory to `prestige-dot-application`. Leave build command blank; set build output directory to `public`. The included PDF writer has no external dependencies. The `functions` directory must sit next to `public` under the configured root.
 2. Create a [Cloudflare Turnstile](https://dash.cloudflare.com/?to=/:account/turnstile) widget for the site's production hostname (for example `prestige-dot-application.pages.dev`).
 3. Set up a [Resend](https://resend.com/) account using **the same email address that should receive the PDFs**, then create an API key with sending access. For a temporary setup sending only to that account address, use Resend's `onboarding@resend.dev` test sender; Resend restricts this sender to the email address on your account. To use another recipient or company-branded sender, verify a sending domain you control. Check the free tier's current daily limit before sending to a large group.
 4. In the **Pages project → Settings → Variables and Secrets**, add these **production** settings:

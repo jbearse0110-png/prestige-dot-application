@@ -1,4 +1,4 @@
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { PDFDocument, StandardFonts, rgb } from './pdf-lite.js';
 
 // Render the submitted application for delivery to the authorized hiring team.
 export async function createApplicationPdf(record) {
