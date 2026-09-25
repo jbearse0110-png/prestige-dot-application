@@ -53,7 +53,7 @@ export async function createApplicationPdf(record) {
   field('Carrier', record.carrier.name);
   field('Carrier address', record.carrier.address);
   section('Applicant');
-  fields(a.applicant, { fullName: 'Full legal name', dateOfBirth: 'Date of birth', phone: 'Phone', email: 'Email', ssn: 'Social Security number' });
+  fields(a.applicant, { fullName: 'Full legal name', dateOfBirth: 'Date of birth', phone: 'Phone', email: 'Email' });
   section('Current address'); fields(a.address, address);
   list('Previous addresses', a.previousAddresses, address);
   list('Licenses', a.licenses, { authority: 'Issuing authority', number: 'License number', class: 'Class', expiration: 'Expiration' });

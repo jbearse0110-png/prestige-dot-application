@@ -12,7 +12,7 @@ const dated=a=>month(a.from)&&month(a.to)&&a.from<=a.to;
 function validate(a){
   if(!a||typeof a!=='object'||!a.applicant||!a.address||!a.certification)return false;
   const p=a.applicant,c=a.certification;
-  if(!str(p.fullName,120)||!date(p.dateOfBirth)||p.dateOfBirth>=new Date().toISOString().slice(0,10)||!str(p.phone,30)||!str(p.email,180)||!/^\d{3}-?\d{2}-?\d{4}$/.test(p.ssn||''))return false;
+  if(!str(p.fullName,120)||!date(p.dateOfBirth)||p.dateOfBirth>=new Date().toISOString().slice(0,10)||!str(p.phone,30)||!str(p.email,180)||Object.hasOwn(p,'ssn'))return false;
   if(!address(a.address)||!validRows(a.previousAddresses,20,x=>address(x)&&dated(x)))return false;
   if(!validRows(a.licenses,12,x=>str(x.authority,80)&&str(x.number,80)&&opt(x.class,50)&&date(x.expiration))||!a.licenses.length)return false;
   if(!opt(a.medicalExpiration,10)||(a.medicalExpiration&&!date(a.medicalExpiration))||!yesno(a.cdlApplicant))return false;
