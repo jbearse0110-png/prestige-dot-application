@@ -6,12 +6,12 @@
   <title>DOT Driver Employment Application | Prestige Site Works</title>
   <link rel="stylesheet" href="/style.css">
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-  <script src="/app.js" defer></script>
+  <script src="/app.js?v=20260925-2" defer></script>
 </head>
 <body>
   <header class="top"><div class="wrap brand"><div class="brand-logos"><img class="prestige-logo" src="/assets/prestige-logo.jpg" alt="Prestige logo"><span class="logo-divider" aria-hidden="true"></span><span class="hs2n-logo" role="img" aria-label="HS2N logo"></span></div><div class="brand-title"><strong>PRESTIGE SITE WORKS LLC</strong><small>DOT DRIVER EMPLOYMENT APPLICATION</small></div></div></header>
   <main class="wrap"><div class="intro"><span class="eyebrow">DRIVER APPLICATION</span><h1>Apply to drive with Prestige.</h1><p>Complete every applicable section. Have your licenses, three years of residence and work history, and accident and violation details available. A PDF copy will be emailed to the authorized hiring team. This form does not ask for your Social Security number; Prestige will collect it separately for the driver qualification file.</p><div class="company">Employing motor carrier: <b>Prestige Site Works LLC</b> · 7224 Jameson Way, Stanley, NC</div></div>
-  <form id="application" novalidate>
+  <form id="application" method="dialog" novalidate>
     <section class="card"><div class="section-head"><span>01</span><div><h2>Personal information</h2><p>Tell us how to reach you.</p></div></div>
       <div class="grid"><label>Full legal name <em>*</em><input name="fullName" autocomplete="name" required maxlength="120"></label><label>Date of birth <em>*</em><input name="dateOfBirth" type="date" required></label><label>Phone <em>*</em><input name="phone" type="tel" autocomplete="tel" required maxlength="30"></label><label>Email <em>*</em><input name="email" type="email" autocomplete="email" required maxlength="180"></label></div>
     </section>
@@ -38,7 +38,7 @@
       <div class="notice">This certifies that this application was completed by me, and that all entries on it and information in it are true and complete to the best of my knowledge.</div>
       <label class="check"><input name="certify" type="checkbox" required> I certify the statement above and intend my typed name below to be my signature. <em>*</em></label>
       <div class="grid spaced"><label>Applicant signature (type full name) <em>*</em><input name="signature" required maxlength="120" autocomplete="off"></label><label>Signature date <em>*</em><input name="signatureDate" type="date" required></label></div>
-      <div id="turnstile" class="challenge"></div><p id="status" role="status" aria-live="polite"></p><button class="submit" type="submit">Submit application <span aria-hidden="true">→</span></button><p class="hint">Please review all information before submitting. Do not submit twice if you receive a confirmation number.</p>
+      <div id="turnstile" class="challenge"></div><p id="status" role="status" aria-live="polite">Loading secure form…</p><button class="submit" type="submit" disabled>Submit application <span aria-hidden="true">→</span></button><p class="hint">Please review all information before submitting. Do not submit twice if you receive a confirmation number.</p>
     </section>
   </form><footer>Prestige Site Works LLC · Driver employment application</footer></main>
   <template id="addresses-template"><div class="row"><div class="row-title">Previous address <button type="button" class="remove">Remove</button></div><div class="grid"><label class="full">Street address <input data-field="street" maxlength="180" required></label><label>City <input data-field="city" maxlength="100" required></label><label>State <input data-field="state" maxlength="60" required></label><label>ZIP <input data-field="zip" maxlength="15" required></label><label>From <input data-field="from" type="month" required></label><label>To <input data-field="to" type="month" required></label></div></div></template>
